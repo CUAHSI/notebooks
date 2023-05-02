@@ -124,10 +124,10 @@ def get_upstream_ids(divides, nexus, catchment_id):
 # (tony) adding support for s3
 # begin -------------------------------
 class LoadGDB():
-    import boto3
-    import fsspec
-
+    
     def __init__(self, path):
+        import boto3
+        import fsspec
         self.isS3 = False
         self.path = path
         if path[0:3] == 's3:':
