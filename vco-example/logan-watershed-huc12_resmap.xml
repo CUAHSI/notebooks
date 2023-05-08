@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+   xmlns:citoterms="http://purl.org/spar/cito/"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:dcterms="http://purl.org/dc/terms/"
+   xmlns:foaf="http://xmlns.com/foaf/0.1/"
+   xmlns:ore="http://www.openarchives.org/ore/terms/"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:rdfs1="http://www.w3.org/2001/01/rdf-schema#"
+>
+  <rdf:Description rdf:about="http://www.hydroshare.org/terms/GeographicFeatureAggregation">
+    <rdfs1:label>Geographic Feature Aggregation</rdfs1:label>
+    <rdfs1:isDefinedBy>http://www.hydroshare.org/terms</rdfs1:isDefinedBy>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation">
+    <citoterms:isDocumentedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_meta.xml</citoterms:isDocumentedBy>
+    <ore:aggregates rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.shp"/>
+    <ore:aggregates rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.cpg"/>
+    <rdf:type rdf:resource="http://www.openarchives.org/ore/terms/Aggregation"/>
+    <ore:aggregates rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_meta.xml"/>
+    <ore:isDescribedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml</ore:isDescribedBy>
+    <ore:aggregates rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.prj"/>
+    <dcterms:type rdf:resource="http://www.hydroshare.org/terms/GeographicFeatureAggregation"/>
+    <ore:aggregates rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.shx"/>
+        <ore:aggregates rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.dbf"/>
+    <dc:title>logan-watershed-huc12</dc:title>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://foresite-toolkit.googlecode.com/#pythonAgent">
+    <foaf:mbox>foresite@googlegroups.com</foaf:mbox>
+    <foaf:name>Foresite Toolkit (Python)</foaf:name>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.prj">
+    <ore:isAggregatedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</ore:isAggregatedBy>
+    <dc:format>application/prj</dc:format>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_meta.xml">
+    <ore:isAggregatedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</ore:isAggregatedBy>
+    <citoterms:documents>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</citoterms:documents>
+    <dc:format>application/rdf+xml</dc:format>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.cpg">
+    <dc:format>application/cpg</dc:format>
+    <ore:isAggregatedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</ore:isAggregatedBy>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml">
+    <dcterms:created>2023-05-08T16:57:29Z</dcterms:created>
+    <ore:describes rdf:resource="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation"/>
+    <dcterms:creator rdf:resource="http://foresite-toolkit.googlecode.com/#pythonAgent"/>
+    <rdf:type rdf:resource="http://www.openarchives.org/ore/terms/ResourceMap"/>
+    <dcterms:modified>2023-05-08T16:57:29Z</dcterms:modified>
+    <dc:format>application/rdf+xml</dc:format>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.dbf">
+    <dc:format>application/dbf</dc:format>
+    <ore:isAggregatedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</ore:isAggregatedBy>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.shx">
+    <ore:isAggregatedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</ore:isAggregatedBy>
+    <dc:format>application/x-qgis</dc:format>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.openarchives.org/ore/terms/Aggregation">
+    <rdfs1:isDefinedBy>http://www.openarchives.org/ore/terms/</rdfs1:isDefinedBy>
+    <rdfs1:label>Aggregation</rdfs1:label>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.openarchives.org/ore/terms/ResourceMap">
+    <rdfs1:label>ResourceMap</rdfs1:label>
+    <rdfs1:isDefinedBy>http://www.openarchives.org/ore/terms/</rdfs1:isDefinedBy>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12.shp">
+    <ore:isAggregatedBy>http://www.hydroshare.org/resource/709bc880194046e3b79b0da56ad090fa/data/contents/logan-watershed-huc12_resmap.xml#aggregation</ore:isAggregatedBy>
+    <dc:format>application/x-qgis</dc:format>
+  </rdf:Description>
+</rdf:RDF>
