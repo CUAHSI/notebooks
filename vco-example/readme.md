@@ -1,4 +1,4 @@
-## Retrieval of the Analysis of Record for Calibration (AORC) Forcing Data (version 1.1) via HydroShare THREDDS's Server
+## Comparing basin averaged AORC precipitation datasets over the Logan River Watershed
 
 ### Content of this resource:
 This example demonstrates how to collect and visualize the AORC (version 1.1) and PRISM precipitation data and calculate the basin averaged precipitation from both datasets over the Logan River Watershed in Utah (Figure below). This HydroShare resource contains the following items:
