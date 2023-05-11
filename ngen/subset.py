@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import List
 
+import networkx as nx
 
 def make_x_walk(hydrofabric):
     """
@@ -202,13 +203,13 @@ def subset_upstream(hydrofabric: Path, ids: "List") -> None:
 
        
     crosswalk = (
-        loader.read_gdb_layer(layer="crosswalk")  # (tony) adding support for s3
+        loader.read_gdb_layer(layer="network_lookup")  # (tony) adding support for s3
         .set_index("id")
         .loc[wb_ids]
         .reset_index()
     )  # v1.2
     flowpath_edge_list = (
-       loader.read_gdb_layer(layer="flowpath_edge_list") # (tony) adding support for s3
+       loader.read_gdb_layer(layer="network") # (tony) adding support for s3
         .set_index("id")
         .loc[nex_ids + wb_ids]
         .reset_index()
@@ -244,17 +245,156 @@ def subset_upstream(hydrofabric: Path, ids: "List") -> None:
     model_attributes.to_file(name, layer="cfe_noahowp_attributes")
     forcing_meta.to_file(name, layer="forcing_metadata")
 
-    # print(flowpaths)
-    # print(divides)
-    # print(nexus)
-    # print(lookup_table)
-    # print(flowpath_edge_list)
-    # print(flowpath_attributes)
-    # print(model_attributes)
-    # print(forcing_attributes)
     make_geojson(name)
 
+def get_upstream_ids_prerelease(nexus, flow, catchment_id):
 
+    # clean and merge nexus and flowline data, keep all records
+    nexus = nexus[['id', 'toid']]
+    nexus = nexus.rename(columns={'id': 'from-nexus', 'toid': 'wb-id'})
+    flow = flow[['id', 'toid', 'divide_id']]
+    flow = flow.rename(columns={'id': 'wb-id', 'toid': 'to-nexus'})
+    merged = nexus.merge(flow, on=['wb-id', 'wb-id'], how='outer')
+    
+    # create directional graph of these data, build graph in reverse order
+    print('Building Graph Network')
+    G = nx.DiGraph()
+    for idx, row in merged.iterrows():
+        if not pd.isnull(row['from-nexus']):
+            G.add_edge(row['to-nexus'], row['from-nexus'])
+        G.add_edge(row['to-nexus'], row['wb-id'], divide_id=row['divide_id'])
+
+    # get starting node
+    start_nexus = merged.loc[merged['wb-id'] == catchment_id]['to-nexus'].item()
+
+    # perform depth first search
+    subG = nx.dfs_tree(G, start_nexus)
+
+    # separate wb- and nex- elements into lists
+    wbs = []
+    nex = []
+    for i in list(subG.nodes()):
+        if i[0:2] == 'wb':
+            wbs.append(i)
+        else:
+            nex.append(i)
+    
+    print('Identified:')
+    print(f'  - {len(wbs)} waterbody locations')
+    print(f'  - {len(nex)} nexus locations ')
+    
+    return wbs, nex
+    
+def subset_upstream_prerelease(hydrofabric: Path, ids: "List") -> None:
+    """
+    Function to peform hydrofabric subsetting on the "pre-release" dataset.
+    Args:
+        hydrofabric (_type_): _description_
+        ids (List): _description_
+    """
+    
+
+    # (tony) adding support for s3
+    # begin -------------------------------
+    loader = LoadGDB(hydrofabric)
+    layers  = loader.list_gdb_layers()
+    divides = loader.read_gdb_layer(layer='divides')
+    nexus   = loader.read_gdb_layer(layer='nexus')
+    flow = loader.read_gdb_layer(layer='flowpaths')
+    # end -------------------------------
+
+    # trace upstream
+    wb_ids, nex_ids = get_upstream_ids_prerelease(nexus, flow, ids)
+    
+
+    for layer in layers:
+        print(layer)
+    
+    print('Subsetting Flowpaths')
+    flowpaths = (
+        loader.read_gdb_layer(layer="flowpaths")         
+        .set_index("id")
+        .loc[wb_ids]
+        .reset_index()
+    )
+    print('Subsetting Divides')
+    divides = divides.set_index("id").loc[wb_ids].reset_index()
+    
+    print('Subsetting Nexus')
+    nexus = nexus.set_index("id").loc[nex_ids].reset_index()
+ 
+    print('Subsetting Crosswalk')
+    crosswalk = (
+        loader.read_gdb_layer(layer="network_lookup")  
+        .set_index("id")
+        .loc[wb_ids]
+        .reset_index()
+    ) 
+    
+    print('Subsetting Edge List')
+    flowpath_edge_list = (
+       loader.read_gdb_layer(layer="network") 
+        .set_index("id")
+        .loc[nex_ids + wb_ids]
+        .reset_index()
+    )
+
+    print('Subsetting Flowpath Attributes')
+    flowpath_attributes = (
+        loader.read_gdb_layer(layer="flowpath_attributes") 
+        .set_index("id")
+        .loc[wb_ids]
+        .reset_index()
+    )
+    
+    print('Subsetting Model Attributes')
+    cat_ids = list(map(lambda x: x.replace("wb", "cat"), wb_ids))
+    model_attributes = (
+        loader.read_gdb_layer(layer="cfe_noahowp_attributes") 
+        .set_index("divide_id")
+        .loc[cat_ids]
+        .reset_index()
+    )
+    
+#     print('Subsetting Hydro Locations')
+#     hydro_locations = (
+#         loader.read_gdb_layer(layer="hydrolocations") 
+#         .set_index("id")
+#         .loc[nex_ids]
+#         .reset_index()
+#     )
+
+#     print('Subsetting Hydro Lookup')
+#     hydro_lookup = (
+#         loader.read_gdb_layer(layer="hydrolocations_lookup") 
+#         .set_index("id")
+#         .loc[wb_ids]
+#         .reset_index()
+#     )   
+    
+#     print('Subsetting Lake Attributes')
+#     lake_attributes = (
+#         loader.read_gdb_layer(layer="lake_attributes") 
+#         .set_index("id")
+#         .loc[wb_ids]
+#         .reset_index()
+#     )
+    
+    # save outputs 
+    print('Saving Subsets to GeoPackage')
+    name = f"{ids}_upstream_subset.gpkg"
+    flowpaths.to_file(name, layer="flowpaths")
+    divides.to_file(name, layer="divides")
+    nexus.to_file(name, layer="nexus")
+    crosswalk.to_file(name, layer="crosswalk")
+    flowpath_edge_list.to_file(name, layer="flowpath_edge_list")
+    flowpath_attributes.to_file(name, layer="flowpath_attributes")
+    model_attributes.to_file(name, layer="cfe_noahowp_attributes")
+    
+    # make geojsons
+    print('Saving Geo JSON')
+    make_geojson(name)
+    
 if __name__ == "__main__":
     import argparse
 
@@ -267,6 +407,7 @@ if __name__ == "__main__":
     # TODO allow multiple inputs for upstream?
     # TODO custom validate type to ensure it is a valid identifier?
     parser.add_argument("upstream", type=str, help="id to subset upstream from")
+    
 
     args = parser.parse_args()
     subset_upstream(args.hydrofabric, args.upstream)
