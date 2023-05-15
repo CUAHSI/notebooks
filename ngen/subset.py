@@ -295,7 +295,7 @@ def subset_upstream(hydrofabric: str, ids: str) -> None:
     flowpath_attributes.to_file(name, layer="flowpath_attributes")
     hydro_locations.to_file(name, layer="hydrolocations")
     lake_attributes.to_file(name, layer="lakes")
-    model_attributes.to_csv("cfe_noahowp_attribute.csv")
+    model_attributes.to_csv("cfe_noahowp_attributes.csv")
 
     # make geojsons
     logging.info("Saving Geo JSON")
