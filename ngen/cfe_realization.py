@@ -57,10 +57,8 @@ class Formulation:
             sort_keys=False, indent=4)
         
 class Module:
-    def __init__(self, name, library_file, registration_function, params={}):
+    def __init__(self, name, params={}):
         self.name = name
-        self.library_file = library_file
-        self.registration_function = registration_function
         self.params=params
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, 
@@ -235,12 +233,12 @@ def create_cfe_realization(base_dir: pathlib.Path,
                              "ice_fraction_schaake": "sloth_ice_fraction_schaake",
                              "ice_fraction_xinan": "sloth_ice_fraction_xinan",
                              "soil_moisture_profile": "sloth_smp"
-                         }}
-
-        m1 = Module('bmi_c','/dmod/shared_libs/libcfebmi.so.1.0.0','register_bmi_cfe', params=module_params)
+                         },
+                        "library_file": "/dmod/shared_libs/libcfebmi.so.1.0.0",
+                        "registration_function": "register_bmi_cfe"}
+        m1 = Module('bmi_c', params=module_params)
 
         # SLOTH
-
         module_params = {"name": "bmi_c++",
                          "model_type_name": "SLOTH",
                          "main_output_variable": "z",
@@ -253,8 +251,10 @@ def create_cfe_realization(base_dir: pathlib.Path,
                              "sloth_ice_fraction_xinan(1,double,1,node)": "0.0",
                              "sloth_smp(1,double,1,node)": "0.0",
                              "EVAPOTRANS": "0.0"
-                         }}
-        m2 = Module('bmi_c++','/dmod/shared_libs/libslothmodel.so','none', params=module_params)
+                         },
+                        "library_file": "/dmod/shared_libs/libslothmodel.so",
+                        "registration_function": "none",}
+        m2 = Module('bmi_c++', params=module_params)
 
 
         form_params = {"name": "bmi_multi",
