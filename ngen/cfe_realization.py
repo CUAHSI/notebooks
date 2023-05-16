@@ -206,6 +206,8 @@ def make_catchment_configs(base_dir: pathlib.Path, catchment_configs: pandas.Dat
 def create_cfe_realization(base_dir: pathlib.Path,
                            cfe_noahowp_csv: pathlib.Path,
                            time={},
+                           config_path=pathlib.Path('.'),
+                           forcing_path=pathlib.Path('.'),
                            ):
     
     catchment_configs = parse_cfe_parameters(pandas.read_csv(cfe_noahowp_csv))
@@ -216,13 +218,14 @@ def create_cfe_realization(base_dir: pathlib.Path,
     for key, val in catchment_configs.items():
         fname = f'wb-{key.split("-")[-1]}'
         config_name = f'{fname}_config.ini'
-        forcing_file_path = f'../forcing/{fname}.csv'
+        config_path = f'{config_path}/{config_name}'
+        forcing_file_path = f'{forcing_path}/{fname}.csv'
 
         # CFE
         module_params = {"name": "bmi_c",
                          "model_type_name": "CFE",
                          "main_output_variable": "Q_OUT",
-                         "init_config": f"{config_name}",
+                         "init_config": f"{config_path}",
                          "allow_exceed_end_time": True,
                          "fixed_time_step": False,
                          "uses_forcing_file": True,
