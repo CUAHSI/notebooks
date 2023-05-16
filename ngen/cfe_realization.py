@@ -200,7 +200,8 @@ def make_catchment_configs(base_dir: pathlib.Path, catchment_configs: pandas.Dat
     """
     
     for name, conf in catchment_configs.items():
-        with open(f'{base_dir}/{name}_config.ini', 'w') as f:
+        fname = f'wb-{name.split("-")[-1]}'
+        with open(f'{base_dir}/{fname}_config.ini', 'w') as f:
             for k, v in conf.items():
                 f.write(f'{k}={v}\n')
 
@@ -215,8 +216,9 @@ def create_cfe_realization(base_dir: pathlib.Path,
     catchment_realizations = CatchmentRealizations()
 
     for key, val in catchment_configs.items():
-        config_name = f'{key}_config.ini'
-        forcing_file_path = f'../forcing/{key}.csv'
+        fname = f'wb-{key.split("-")[-1]}'
+        config_name = f'{fname}_config.ini'
+        forcing_file_path = f'../forcing/{fname}.csv'
 
         # CFE
         module_params = {"name": "bmi_c",
@@ -266,7 +268,7 @@ def create_cfe_realization(base_dir: pathlib.Path,
 
         realization = Realization(f, forcing={'path': forcing_file_path})
 
-        catchment_realizations.add_realization(key, realization)
+        catchment_realizations.add_realization(fname, realization)
 
 
 
