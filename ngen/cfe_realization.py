@@ -288,7 +288,7 @@ def create_cfe_realization(base_dir: pathlib.Path,
     # load
     yaml = ruamel.yaml.YAML()
     with open('./ngen-routing-template.yaml') as file:
-        data = yaml.load(file)
+        ngen = yaml.load(file)
     # define wb_id    
     wb_id = base_dir.parts[-2]
     # modify
