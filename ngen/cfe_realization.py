@@ -216,14 +216,14 @@ def create_cfe_realization(base_dir: pathlib.Path,
 
     for key, val in catchment_configs.items():
         config_name = f'{key}_config.ini'
-        config_path = f'{config_path}/{config_name}'
+        config_path_ini = f'{config_path}/{config_name}'
         forcing_file_path = f'{forcing_path}/{key}.csv'
 
         # CFE
         module_params = {"name": "bmi_c",
                          "model_type_name": "CFE",
                          "main_output_variable": "Q_OUT",
-                         "init_config": f"{config_path}",
+                         "init_config": f"{config_path_ini}",
                          "allow_exceed_end_time": True,
                          "fixed_time_step": False,
                          "uses_forcing_file": True,
