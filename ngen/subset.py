@@ -301,6 +301,25 @@ def subset_upstream(hydrofabric: str, ids: str) -> None:
     logging.info("Saving Geo JSON")
     make_geojson(name)
     
+    #### ----- added to support creating inputs for the the workshop
+    #### ----- update this later!
+    #### ----- changing all wb-* to cat-* in the json files
+    import re
+    
+    with open('catchments.geojson', 'r') as file:
+        file_contents = file.read()
+    substituted_contents = re.sub(r'wb', r'cat', file_contents)
+    with open('catchments.geojson', 'w') as file:
+        file.write(substituted_contents)
+        
+    with open('nexus.geojson', 'r') as file:
+        file_contents = file.read()
+    substituted_contents = re.sub(r'wb', r'cat', file_contents)
+    with open('nexus.geojson', 'w') as file:
+        file.write(substituted_contents)
+        
+    #### ---------------------------------------
+    
 if __name__ == "__main__":
 
     # get the command line parser
