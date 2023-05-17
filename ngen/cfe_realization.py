@@ -284,17 +284,18 @@ def create_cfe_realization(base_dir: pathlib.Path,
         
         
     ####### ngen-yaml
-    import yaml
-    with open('./ngen-routing-template.yaml', 'r') as file:
-        ngen = yaml.safe_load(file)
-        
+    import ruamel.yaml
+    # load
+    yaml = ruamel.yaml.YAML()
+    with open('./ngen-routing-template.yaml') as file:
+        data = yaml.load(file)
+    # define wb_id    
     wb_id = base_dir.parts[-2]
-    
+    # modify
     ngen['network_topology_parameters']['supernetwork_parameters']['geo_file_path'] = f'/ngen/ngen/data/config/{wb_id}_upstream_subset.gpkg'
     ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = f'/ngen/ngen/data/config/{wb_id}_upstream_subset.gpkg'
     ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['reservoir_parameter_file'] = f'/ngen/ngen/data/config/{wb_id}_upstream_subset.gpkg'
     ngen['compute_parameters']['restart_parameters']['start_datetime'] = time['start_time']  #'2022-08-24 13:00:00'
-    
+    # save
     with open(f'{wb_id}/config/ngen.yaml', 'w') as file:
         yaml.dump(ngen, file)
-    
