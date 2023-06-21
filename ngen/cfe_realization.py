@@ -208,6 +208,7 @@ def create_cfe_realization(base_dir: pathlib.Path,
                            config_path=pathlib.Path('.'),
                            forcing_path=pathlib.Path('.'),
                            troute_path=None,
+                           binary_path=pathlib.Path('/dmod/shared_libs'),
                            ):
     
     catchment_configs = parse_cfe_parameters(pandas.read_csv(cfe_noahowp_csv))
@@ -236,7 +237,7 @@ def create_cfe_realization(base_dir: pathlib.Path,
                              "ice_fraction_xinan": "sloth_ice_fraction_xinan",
                              "soil_moisture_profile": "sloth_smp"
                          },
-                        "library_file": "/dmod/shared_libs/libcfebmi.so.1.0.0",
+                        "library_file": f"{binary_path}/libcfebmi.so.1.0.0",
                         "registration_function": "register_bmi_cfe"}
         m1 = Module('bmi_c', params=module_params)
 
@@ -254,7 +255,7 @@ def create_cfe_realization(base_dir: pathlib.Path,
                              "sloth_smp(1,double,1,node)": "0.0",
                              "EVAPOTRANS": "0.0"
                          },
-                        "library_file": "/dmod/shared_libs/libslothmodel.so",
+                        "library_file": f"{binary_path}/libslothmodel.so",
                         "registration_function": "none",}
         m2 = Module('bmi_c++', params=module_params)
 
@@ -300,6 +301,8 @@ def create_cfe_realization(base_dir: pathlib.Path,
     ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = f'{config_path}/{wb_id}_upstream_subset.gpkg'
     ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['reservoir_parameter_file'] = f'{config_path}/{wb_id}_upstream_subset.gpkg'
     ngen['compute_parameters']['restart_parameters']['start_datetime'] = time['start_time']  #'2022-08-24 13:00:00'
+    ngen['compute_parameters']['forcing_parameters']['nts'] = time['nts'] 
+    
     # save
     with open(f'{wb_id}/config/ngen.yaml', 'w') as file:
         yaml.dump(ngen, file)
