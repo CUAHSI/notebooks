@@ -285,6 +285,18 @@ def subset_upstream(hydrofabric: str, ids: str) -> None:
     lake_attributes = loader.read_gdb_layer(layer="lakes")
     lake_attributes = lake_attributes.loc[lake_attributes.toid.isin(wb_ids)]
 
+    ### HACK TO FIX T-ROUTE ISSUE
+    ### T-route will only work with "ids" starting with "cat"
+    ### therefore we need to replace occurrences of "wb-*" with "cat-*"
+    import pdb; pdb.set_trace()
+    logging.info("Replacing 'wb-' with 'cat-' to fix known bug in T-Route")
+    divides['id'].replace('wb', 'cat', regex=True, inplace=True)
+    flowpaths['id'].replace('wb', 'cat', regex=True, inplace=True)
+    flowpath_edge_list['toid'].replace('wb', 'cat', regex=True, inplace=True)
+    flowpath_attributes['id'].replace('wb', 'cat', regex=True, inplace=True)
+    lake_attributes['toid'].replace('wb', 'cat', regex=True, inplace=True)
+    nexus['toid'].replace('wb', 'cat',regex=True, inplace=True)
+    
     # save outputs
     logging.info("Saving Subsets to GeoPackage")
     name = f"{ids}_upstream_subset.gpkg"
