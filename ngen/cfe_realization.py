@@ -207,6 +207,7 @@ def create_cfe_realization(base_dir: pathlib.Path,
                            time={},
                            config_path=pathlib.Path('.'),
                            forcing_path=pathlib.Path('.'),
+                           troute_path=None,
                            ):
     
     catchment_configs = parse_cfe_parameters(pandas.read_csv(cfe_noahowp_csv))
@@ -272,8 +273,11 @@ def create_cfe_realization(base_dir: pathlib.Path,
         catchment_realizations.add_realization(key, realization)
 
 
-
-    routing = {'t_route_config_file_with_path': '/ngen/ngen/data/config/ngen.yaml'}
+    if troute_path is not None:
+        # routing = {'t_route_config_file_with_path': '/ngen/ngen/data/config/ngen.yaml'}
+        routing = {'t_route_config_file_with_path': f'{troute_path}'}
+    else:
+        routing = None
     
     realization = GlobalRealization(time=time,
                                     catchment_realizations=catchment_realizations,
@@ -292,9 +296,9 @@ def create_cfe_realization(base_dir: pathlib.Path,
     # define wb_id    
     wb_id = base_dir.parts[-2]
     # modify
-    ngen['network_topology_parameters']['supernetwork_parameters']['geo_file_path'] = f'/ngen/ngen/data/config/{wb_id}_upstream_subset.gpkg'
-    ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = f'/ngen/ngen/data/config/{wb_id}_upstream_subset.gpkg'
-    ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['reservoir_parameter_file'] = f'/ngen/ngen/data/config/{wb_id}_upstream_subset.gpkg'
+    ngen['network_topology_parameters']['supernetwork_parameters']['geo_file_path'] = f'{config_path}/{wb_id}_upstream_subset.gpkg'
+    ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = f'{config_path}/{wb_id}_upstream_subset.gpkg'
+    ngen['network_topology_parameters']['waterbody_parameters']['level_pool']['reservoir_parameter_file'] = f'{config_path}/{wb_id}_upstream_subset.gpkg'
     ngen['compute_parameters']['restart_parameters']['start_datetime'] = time['start_time']  #'2022-08-24 13:00:00'
     # save
     with open(f'{wb_id}/config/ngen.yaml', 'w') as file:
