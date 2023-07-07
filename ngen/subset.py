@@ -264,7 +264,7 @@ def subset_upstream(hydrofabric: str, ids: str) -> None:
     logging.info("Subsetting Model Attributes")
     cat_ids = list(map(lambda x: x.replace("wb", "cat"), wb_ids))
     p = Path(hydrofabric)
-    vpu = p.parts[-1].split('_')[-1][0:2]
+    vpu = p.parts[-1].split('_')[-1].split('.')[0]
     parquet_name = f'nextgen_{vpu}_cfe_noahowp.parquet'
     parquet_path =  (str(Path(*p.parts[0:-1])/parquet_name).
                      replace(':/','://'))
