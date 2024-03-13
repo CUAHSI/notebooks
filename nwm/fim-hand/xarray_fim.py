@@ -14,14 +14,45 @@ import rioxarray
 import geopandas
 import fim_utils as fim
 from pathlib import Path
-import matplotlib.pyplot as plt
 from geocube.api.core import make_geocube
 
-def get_hand_object(path):
-    return rioxarray.open_rasterio(path, masked=True).squeeze().drop('band').to_dataset(name='hand')
+def get_hand_object(path: Path) -> xarray.Dataset:
+    """
+    Converts NOAA OWP HAND tif into a rioxarray Dataset.
+
+    Parameters
+    ==========
+    path: pathlib.Path
+        Path-like object to the NOAA OWP HAND tif.
+
+    Returns
+    =======
+    xarray.Dataset
+        Dataset containing HAND as a variable.
+
+    """
+    return rioxarray.open_rasterio(path, masked=True) \
+            .squeeze() \
+            .drop_vars('band'). \
+            to_dataset(name='hand')
 
 def generate_fim_grid(nhd_feature_id: int,
                       cms: float) -> xarray.Dataset:
+    """
+    Computes FIM grid for a given NHD+ feature ID and flow rate.
+
+    Parameters
+    ==========
+    nhd_feature_id: int
+        NHD+ feature identifier for which to compute FIM.
+    cms: float
+        Streamflow (in cubic meters per second) used to derive river stage.
+
+    Returns
+    =======
+    xarray.Dataset
+        Dataset containing HAND, FIM, and Stage variables.
+    """
     
     # Collect stage for all hydroids in this NHD+ feature. 
     # Use the input cms to interpolate river stage from a rating curve.
@@ -56,7 +87,7 @@ def generate_fim_grid(nhd_feature_id: int,
     xds = xds.where(xds.hydroid.isin(geodf_filtered.HydroID), drop=True)
 
     # Update the stage values in the DataSet where specific hydroid's exist. 
-    for idx, row in geodf_filtered.iterrows():
+    for _, row in geodf_filtered.iterrows():
         xds['stage'] = xarray.where(xds.hydroid == row.HydroID, row.stage, xds.stage)
 
     # Compute FIM by subtracting `hand` from `stage`.
