@@ -93,8 +93,10 @@ def generate_fim_grid(nhd_feature_id: int,
     # Compute FIM by subtracting `hand` from `stage`.
     # Everything that is negative should be set to zero.
     xds['fim'] = xds.stage - xds.hand
-    xds['fim'] = xarray.where(xds.fim >= 0.00001, xds.fim, numpy.nan)
-    
+    xds['fim_extent'] = xarray.where(xds.fim >= 0.00001, xds.fim, numpy.nan)
+    xds['fim_mask'] = xarray.where(xds.fim >= 0.00001, 1, xds.fim)
+    xds['fim_mask'] = xarray.where(xds.fim < 0.00001, 0, xds.fim_mask)
+
     return xds
 
 if __name__ == '__main__':
