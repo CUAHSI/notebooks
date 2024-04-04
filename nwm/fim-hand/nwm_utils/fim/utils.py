@@ -12,7 +12,7 @@ import xarray
 import rioxarray
 import numpy as np
 import pandas as pd
-from typing import Dict
+from typing import Dict, List
 from pathlib import Path
 from scipy import interpolate
 
@@ -207,15 +207,18 @@ def get_stage_for_all_hydroids_in_reach(
 
     """
 
-    # load hydrotable_0
-    # we don't need all of the columns in this csv
-    hydro_df = pd.read_csv(
-        hydrotable,
-        usecols=["HydroID", "NextDownID", "feature_id", "stage", "discharge_cms"],
-    )
+    # # load hydrotable_0
+    # # we don't need all of the columns in this csv
+    # hydro_df = pd.read_csv(
+    #     hydrotable,
+    #     usecols=["HydroID", "NextDownID", "feature_id", "stage", "discharge_cms"],
+    # )
 
-    # select features that match nhd_feature_id
-    d = hydro_df.loc[hydro_df.feature_id == nhd_feature_id]
+    # # select features that match nhd_feature_id
+    # d = hydro_df.loc[hydro_df.feature_id == nhd_feature_id]
+
+    
+    d = get_hydroids_for_reach(nhd_feature_id, hydrotable)
 
     # get unique combos of HydroID and NextDownID
     hydro_ids = np.unique(d.HydroID)
@@ -226,3 +229,23 @@ def get_stage_for_all_hydroids_in_reach(
 
     # return interpolated stage
     return interpolated_stages
+
+def get_hydroids_for_reach(nhd_feature_id: int, hydrotable: Path = Path("./hydroTable_0.csv")) -> pd.DataFrame:
+
+    # load hydrotable_0
+    # we don't need all of the columns in this csv
+    hydro_df = pd.read_csv(
+        hydrotable,
+        usecols=["HydroID", "NextDownID", "feature_id", "stage", "discharge_cms"],
+    )
+
+    # select features that match nhd_feature_id
+    d = hydro_df.loc[hydro_df.feature_id == nhd_feature_id]
+
+    return d
+    # # get unique combos of HydroID and NextDownID
+    # hydro_ids = np.unique(d.HydroID)
+
+    
+
+    return hydro_ids

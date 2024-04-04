@@ -23,7 +23,8 @@ from .utils import get_hand_object, get_stage_for_all_hydroids_in_reach
 
 __all__ = ['generate_fim_grid']
 
-def generate_fim_grid(nhd_feature_id: int, cms: float) -> xarray.Dataset:
+def generate_fim_grid(nhd_feature_id: int,
+                      cms: float) -> xarray.Dataset:
     """
     Computes FIM grid for a given NHD+ feature ID and flow rate.
 
