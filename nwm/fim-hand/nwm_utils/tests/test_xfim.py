@@ -151,7 +151,13 @@ class TestXFim:
         from dask.distributed import Client
         client = Client(n_workers=2, memory_limit='4GB') # per worker
 
-        ds = fim.xfim.set_stage_for_hydroids(pytest.xds, reach_ids, flow_obj)
+        # scatter the data ahead of time so we can pass a pointer to the 
+        # scheduler instead of the entire data object
+        scattered_ds = client.scatter(pytest.xds, broadcast=True)
+
+        ds = fim.xfim.set_stage_for_hydroids(scattered_ds,
+                                             reach_ids,
+                                             flow_obj)
         del client
         
         import pandas

@@ -168,19 +168,21 @@ def __dask_build_stage_data_array(ds, reach_ids, flows):
 def set_stage_for_hydroids(ds, reach_ids, flows, parallel=True):
 
     if parallel:
-        client = distributed.client._get_global_client() or distributed.Client()
-
-        # scatter the data ahead of time so we can pass a pointer to the 
-        # scheduler instead of the entire data object
-        scattered_ds = client.scatter(ds, broadcast=True)
         
-        res = dask.compute(build_stage_data_array(scattered_ds,
+        res = dask.compute(build_stage_data_array(ds,
                                                   reach_ids,
-                                                  flows,delayed=True,
+                                                  flows,
+                                                  delayed=True,
                                                   ))[0]
-
+    
+        # convert lazy collection into dask collection this
+        # is necessary if xds has been scattered.
+        if isinstance(ds, dask.distributed.client.Future):
+            ds = ds.result()
+        
         # set result as variable in the input dataset
         ds['stage'] = res
+
         return ds
     else:
         raise Exception('Non-parallel functionality not implemented yet')
