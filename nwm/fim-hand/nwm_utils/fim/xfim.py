@@ -4,24 +4,239 @@
 Purpose: Utility functions for generating FIM maps using HAND published
          by NOAA OWP.
 Authors: Tony Castronova <acastronova@cuahsi.org>
-Last Modified: March 13, 2024
+Last Modified: April 09, 2024
 """
 
-
+import dask
 import numpy
 import xarray
 import pandas
 import geopandas
 import fim_utils as fim
-from typing import List
 from pathlib import Path
+from typing import List, Dict
 from datetime import datetime
+from dask.delayed import Delayed
+import dask.distributed as distributed
 from geocube.api.core import make_geocube
 
 from .utils import get_hand_object, get_stage_for_all_hydroids_in_reach
 
 
 __all__ = ['generate_fim_grid']
+
+
+def get_stage_from_rating_curve(nhd_feature_id: int,
+                                flow: float,
+                                delayed: bool = False) -> Dict [numpy.int64, float] | Delayed:
+    """
+    Collects stage for all hydroids within the given nhd feature.
+    Stage is computed by iterpolating known rating curves using
+    the provide `flow`.
+
+    Parameters
+    ==========
+    nhd_feature_id: int
+        NHD+ feature identifier for which to compute FIM.
+    cms: float
+        Streamflow (in cubic meters per second) used to derive river stage.
+    delayed: bool = False
+        Flag to indicate if this function should use Dask for parallelization.
+
+    Returns
+    =======
+    Dict [int, float] | dask.delayed.Delayed
+        Dictionary containing one or more NWM hydro identifiers and
+        their corresponding stages.
+
+    """
+    if delayed:
+        return __dask_get_stage_from_rating_curve(nhd_feature_id, flow)
+    return get_stage_for_all_hydroids_in_reach(nhd_feature_id, flow)
+
+
+@dask.delayed
+def __dask_get_stage_from_rating_curve(nhd_feature_id: int,
+                                flow: float) -> Delayed:
+    """
+    Collects stage for all hydroids within the given nhd feature.
+    Stage is computed by iterpolating known rating curves using
+    the provide `flow`.
+    """
+    
+    return get_stage_for_all_hydroids_in_reach(nhd_feature_id, flow)
+
+def set_stage_value(ds: xarray.Dataset,
+                    stage_dict: Dict [numpy.int64, float] | Delayed,
+                    delayed=False):
+    """
+    Sets stage in Xarray Dataset with out without dask.
+    """
+    
+    if delayed:
+        return __dask_set_stage_value(ds, stage_dict)
+    return __set_stage_value(ds, stage_dict)
+
+def __set_stage_value(ds: xarray.Dataset,
+                    stage_dict: Dict [numpy.int64, float] | Delayed,
+                    delayed=False):
+    """
+    Sets stage in Xarray Dataset.
+    """
+    
+    if delayed:
+        return __dask_set_stage_value(ds, stage_dict)
+
+    # create an array to store stage values for the current timestep
+    a = numpy.empty(ds.hand.shape)
+    a[:] = numpy.nan
+    
+    # Update the stage values in the array where specific hydroid's exist.
+    hydroids = stage_dict.keys()
+    for hydroid in hydroids:
+        a[numpy.where(ds.hydroid == hydroid)] = stage_dict[hydroid]
+    
+    da = xarray.DataArray(data=a, dims=['y','x'],
+                          coords = dict(
+                             x=ds.x,
+                             y=ds.y
+                         ))
+    return da
+
+@dask.delayed
+def __dask_set_stage_value(ds: xarray.Dataset,
+                           stage_dict: Dict [numpy.int64, float] | Delayed):
+    """
+    Returns a future for setting stage in Xarray Dataset.
+    """
+   
+    return __set_stage_value(ds, stage_dict)
+
+
+def build_stage_data_array(ds, reach_ids, flows,
+                           delayed=True):
+    """
+    This sets the stages for all times at each reach.
+    """
+
+    if delayed:
+        return __dask_build_stage_data_array(ds, reach_ids, flows)
+
+    return __build_stage_data_array(ds, reach_ids, flows)
+
+def __build_stage_data_array(ds, reach_ids, flows):
+    """
+    This should set the stages for all times at each reach.
+    """
+    return Exception('Non-delayed functionality not Implemented')
+
+@dask.delayed
+def __dask_build_stage_data_array(ds, reach_ids, flows):
+    """
+    This should set the stages for all times at each reach.
+    """
+    
+    
+    futures = []
+    for time in flows.keys():
+        # the array of flows for each reach at the current timestep
+        reach_flows = flows[time]
+        
+        # compute stage for each reach in the current timestep
+        stage_dict = {}
+        
+        for i in range(0, len(reach_ids)): 
+            nhd_feature_id = reach_ids[i]
+            flow = reach_flows[i]
+            futures.append(get_stage_from_rating_curve(nhd_feature_id, flow))
+            
+    stages = dask.compute(futures)[0]
+
+    i = 0
+    futures = []
+    for time in flows.keys():
+        stage_dict = stages[i]
+        futures.append(set_stage_value(ds, stage_dict))
+        i += 1
+    das = dask.compute(futures)[0]
+
+    da = xarray.concat(das,
+                       pandas.DatetimeIndex(flows.keys(), name='time'))
+
+    return da
+
+def set_stage_for_hydroids(ds, reach_ids, flows, parallel=True):
+
+    if parallel:
+        client = distributed.client._get_global_client() or distributed.Client()
+
+        # scatter the data ahead of time so we can pass a pointer to the 
+        # scheduler instead of the entire data object
+        scattered_ds = client.scatter(ds, broadcast=True)
+        
+        res = dask.compute(build_stage_data_array(scattered_ds,
+                                                  reach_ids,
+                                                  flows,delayed=True,
+                                                  ))[0]
+
+        # set result as variable in the input dataset
+        ds['stage'] = res
+        return ds
+    else:
+        raise Exception('Non-parallel functionality not implemented yet')
+
+def generate_fim(ds, times, parallel=True):
+    
+    if parallel:
+        
+        return __dask_generate_fim(ds, times, parallel=True)
+    else:
+        return Exception("Non-parallel is not implemented")
+
+
+
+def __dask_generate_fim(xds, times, parallel=True):
+
+
+#    client = distributed.client._get_global_client() or distributed.Client()
+    
+#    # scatter the data ahead of time so we can pass a pointer to the 
+#    # scheduler instead of the entire data object
+#    scattered_xds = client.scatter(xds, broadcast=True)
+
+    futures = []
+    for time in times:
+        future = compute_fim(xds,
+                             time)
+        futures.append(future)
+    res = dask.compute(futures)
+
+    fims, masks = zip(*res[0])
+    
+    fims = xarray.concat(fims, dim='time')
+    masks = xarray.concat(masks, dim='time')
+
+    # convert lazy collection into dask collection this
+    # is necessary if xds has been scattered.
+    if isinstance(xds, dask.distributed.client.Future):
+        xds = xds.result()
+
+    xds['fim'] = fims
+    xds['fim_mask'] = masks
+    
+    return xds
+
+
+
+@dask.delayed
+def compute_fim(xds, time):
+    
+    da_fim = (xds.sel(time = time).stage - xds.hand)
+    da_fim = xarray.where(da_fim >= 0.00001, da_fim, numpy.nan)
+    da_fim_mask = xarray.where(da_fim >= 0.00001, 1, da_fim)
+    da_fim_mask = xarray.where(da_fim < 0.00001, 0, da_fim_mask)
+    
+    return da_fim, da_fim_mask
 
 def generate_fim_grid(nhd_feature_id: int,
                       cms: float) -> xarray.Dataset:
@@ -87,6 +302,7 @@ def generate_fim_grid(nhd_feature_id: int,
     xds["fim_mask"] = xarray.where(xds.fim < 0.00001, 0, xds.fim_mask)
 
     return xds
+    
 
 def generate_fim_through_time(nhd_feature_id: int,
                               times: List[datetime],
