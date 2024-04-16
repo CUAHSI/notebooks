@@ -5,6 +5,7 @@ import pytest
 import dask
 import numpy
 import xarray
+import pandas
 import geopandas
 from pathlib import Path
 from nwm_utils import fim
@@ -18,12 +19,14 @@ class FIMTestData():
                  st_date,
                  end_date,
                  hand_raster,
-                 xds):
+                 xds,
+                 hydrodf):
         self.nhd_feature_id = nhd_feature_id
         self.st_date = st_date
         self.end_date = end_date
         self.hand_raster = hand_raster
         self.xds = xds
+        self.hydrodf = hydrodf
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -37,6 +40,14 @@ def initialize():
 
     gdf = geopandas.read_file(
         fpath/Path("test-data/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg"))
+    
+    hydrodf = pandas.read_csv(fpath/Path('test-data/hydroTable_0.csv'),
+                              usecols=["HydroID",
+                                       "NextDownID",
+                                       "feature_id",
+                                       "stage",
+                                       "discharge_cms"])
+
 
     subset_gdf = gdf.loc[gdf.feature_id == nhd_feature_id]
     xds = xds.rio.clip(subset_gdf.geometry.values,
@@ -64,6 +75,7 @@ def initialize():
     pytest.end_date = '2020-06-30'
     pytest.hand_raster = hand_raster
     pytest.xds = xds
+    pytest.hydrodf = hydrodf
 
 
 class TestXFim:
@@ -143,26 +155,28 @@ class TestXFim:
         flows = [cms] * len(times)
         reach_ids = [pytest.nhd_feature_id]
 
-        # generate some random flow values for each of these hydroids
-        flow_obj = {}
-        for i in range(0, len(times)):
-            flow_obj[times[i]] = [flows[i]]
+        reaches = []        
+        for reach_id in reach_ids:
+            r = fim.utils.Reach(reach_id, flows, times)
+            r.set_rating_curve_from_hydrotable(pytest.hydrodf)
+            reaches.append(r)
 
-        from dask.distributed import Client
-        client = Client(n_workers=2, memory_limit='4GB') # per worker
+#        from dask.distributed import Client
+#        client = Client(n_workers=2, memory_limit='4GB') # per worker
 
         # scatter the data ahead of time so we can pass a pointer to the 
         # scheduler instead of the entire data object
-        scattered_ds = client.scatter(pytest.xds, broadcast=True)
-
-        ds = fim.xfim.set_stage_for_hydroids(scattered_ds,
-                                             reach_ids,
-                                             flow_obj)
-        del client
+#        scattered_ds = client.scatter(pytest.xds, broadcast=True)
+        ds = fim.xfim.set_stage_for_hydroids(pytest.xds,
+                                             reaches,
+                                             parallel=False)
+ #       del client
         
-        import pandas
         compare_dates = [pandas.to_datetime(t) for t in times]
         assert list(ds.time.values) == compare_dates
+
+        # TODO: test that stage values are set correctly
+        
 
     def test_generate_fim(self):
         cms = 100
@@ -176,26 +190,25 @@ class TestXFim:
         flows = [cms] * len(times)
         reach_ids = [pytest.nhd_feature_id]
 
-        # generate some random flow values for each of these hydroids
-        flow_obj = {}
-        for i in range(0, len(times)):
-            flow_obj[times[i]] = [flows[i]]
+        reaches = []        
+        for reach_id in reach_ids:
+            r = fim.utils.Reach(reach_id, flows, times)
+            r.set_rating_curve_from_hydrotable(pytest.hydrodf)
+            reaches.append(r)
 
-        from dask.distributed import Client
-        client = Client(n_workers=2, memory_limit='4GB') # per worker
+#        from dask.distributed import Client
+#        client = Client(n_workers=2, memory_limit='4GB') # per worker
        
         # set stage for hydroids
-        ds = fim.xfim.set_stage_for_hydroids(pytest.xds, reach_ids, flow_obj)
-
+        ds = fim.xfim.set_stage_for_hydroids(pytest.xds, reaches, parallel=False)
+        import pdb; pdb.set_trace()
         # scatter the data ahead of time so we can pass a pointer to the 
         # scheduler instead of the entire data object
-        scattered_xds = client.scatter(ds, broadcast=True)
+#        scattered_xds = client.scatter(ds, broadcast=True)
  
-        ds = fim.xfim.generate_fim(scattered_xds, times, parallel=True)
+        ds = fim.xfim.generate_fim(ds, times, parallel=False)
 
-        del client
-        import pandas
-
+ #       del client
         compare_dates = [pandas.to_datetime(t) for t in times]
         assert list(ds.time.values) == compare_dates
         assert int(ds.fim.sum().item()) == 148362

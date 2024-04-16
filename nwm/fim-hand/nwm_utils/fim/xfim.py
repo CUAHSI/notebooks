@@ -20,6 +20,8 @@ from dask.delayed import Delayed
 import dask.distributed as distributed
 from geocube.api.core import make_geocube
 
+from collections import OrderedDict
+
 from .utils import get_hand_object, get_stage_for_all_hydroids_in_reach
 
 
@@ -84,8 +86,8 @@ def __set_stage_value(ds: xarray.Dataset,
     Sets stage in Xarray Dataset.
     """
     
-    if delayed:
-        return __dask_set_stage_value(ds, stage_dict)
+#    if delayed:
+#        return __dask_set_stage_value(ds, stage_dict)
 
     # create an array to store stage values for the current timestep
     a = numpy.empty(ds.hand.shape)
@@ -113,65 +115,122 @@ def __dask_set_stage_value(ds: xarray.Dataset,
     return __set_stage_value(ds, stage_dict)
 
 
-def build_stage_data_array(ds, reach_ids, flows,
-                           delayed=True):
+def build_stage_data_array(ds, reaches, delayed=True):
+#                           reach_ids, flows,
+#                           delayed=True):
     """
     This sets the stages for all times at each reach.
     """
 
+#    # get hydro_ids for reach_ids
+#    # TODO: implement both serial and parallel
+#    dfs = []
+#    for reach_id in reach_ids:
+#        dfs.append(utils.get_hydroids_for_reach(reach_id))
+#    hydro_ids = pandas.concat(dfs)
+
+
     if delayed:
-        return __dask_build_stage_data_array(ds, reach_ids, flows)
+        return __dask_build_stage_data_array(ds, reaches)
 
-    return __build_stage_data_array(ds, reach_ids, flows)
+    return __build_stage_data_array(ds, reaches)
 
-def __build_stage_data_array(ds, reach_ids, flows):
+def __build_stage_data_array(ds, dat):
     """
     This should set the stages for all times at each reach.
     """
-    return Exception('Non-delayed functionality not Implemented')
+    # loop through time keys
+    das = []
+    for time in dat.keys():
+        das.append(set_stage_value(ds, dat[time]))
+    da = xarray.concat(das,
+                       pandas.DatetimeIndex(dat.keys(), name='time'))
+    return da
 
 @dask.delayed
-def __dask_build_stage_data_array(ds, reach_ids, flows):
+def __dask_build_stage_data_array(ds, reaches):
     """
     This should set the stages for all times at each reach.
     """
-    
-    
     futures = []
-    for time in flows.keys():
-        # the array of flows for each reach at the current timestep
-        reach_flows = flows[time]
+    print('Preparing Data')
+    # collect hydro reaches and their rating curves
+    # TODO: move into dask
+    dat = OrderedDict()
+    for reach in reaches:
+        rcs = []
+        hydro_ids = []
+        print(reach)
+        for hydro_id, rc in reach.get_rating_curve().items():
+            hydro_ids.append(hydro_id)
+            rcs.append(rc)
+    
+        # loop through reach time(s) and flow(s), compute stage
+        for _, data in enumerate(zip(reach.times(), reach.flows())):
+            time = data[0]
+            flow = data [1]
         
-        # compute stage for each reach in the current timestep
-        stage_dict = {}
-        
-        for i in range(0, len(reach_ids)): 
-            nhd_feature_id = reach_ids[i]
-            flow = reach_flows[i]
-            futures.append(get_stage_from_rating_curve(nhd_feature_id, flow))
-            
-    stages = dask.compute(futures)[0]
+            if time not in dat:
+                dat[time] = {}
+                
+            for i in range(0, len(hydro_ids)):
+                stage = rcs[i].get_stage_for_flow(flow)
+                dat[time][hydro_ids[i]] = stage
 
+    print('building stage array') 
+
+    # TODO: ensure that these data are coming back in the order they are submitted
     i = 0
     futures = []
-    for time in flows.keys():
-        stage_dict = stages[i]
-        futures.append(set_stage_value(ds, stage_dict))
+    for time in dat.keys():
+        futures.append(set_stage_value(ds, dat[time]))
         i += 1
+    print(len(futures))
+
+#    das = dask.bag.from_delayed(futures)[0]
     das = dask.compute(futures)[0]
 
     da = xarray.concat(das,
-                       pandas.DatetimeIndex(flows.keys(), name='time'))
-
+                       pandas.DatetimeIndex(dat.keys(), name='time'))
     return da
 
-def set_stage_for_hydroids(ds, reach_ids, flows, parallel=True):
+#    futures = []
+#    for time in flows.keys():
+#        # the array of flows for each reach at the current timestep
+#        reach_flows = flows[time]
+#        
+#        # compute stage for each reach in the current timestep
+#        stage_dict = {}
+#        
+#        for i in range(0, len(reach_ids)): 
+#            nhd_feature_id = reach_ids[i]
+#            flow = reach_flows[i]
+#            futures.append(get_stage_from_rating_curve(nhd_feature_id, flow))
+#            
+#    stages = dask.compute(futures)[0]
+#
+#    i = 0
+#    futures = []
+#    for time in flows.keys():
+#        stage_dict = stages[i]
+#        futures.append(set_stage_value(ds, stage_dict))
+#        i += 1
+#    das = dask.compute(futures)[0]
+#
+#    da = xarray.concat(das,
+#                       pandas.DatetimeIndex(flows.keys(), name='time'))
+#
+#    return da
 
+
+
+def set_stage_for_hydroids(ds, reaches, parallel=True):
+
+    # create stage
     if parallel:
         
         res = dask.compute(build_stage_data_array(ds,
-                                                  reach_ids,
-                                                  flows,
+                                                  reaches,
                                                   delayed=True,
                                                   ))[0]
     
@@ -183,21 +242,65 @@ def set_stage_for_hydroids(ds, reach_ids, flows, parallel=True):
         # set result as variable in the input dataset
         ds['stage'] = res
 
-        return ds
     else:
-        raise Exception('Non-parallel functionality not implemented yet')
+        # collect hydro reaches and their rating curves
+        print('preparing data')
+        dat = OrderedDict()
+        for reach in reaches:
+            rcs = []
+            hydro_ids = []
+            for hydro_id, rc in reach.get_rating_curve().items():
+                hydro_ids.append(hydro_id)
+                rcs.append(rc)
 
-def generate_fim(ds, times, parallel=True):
+            # loop through reach time(s) and flow(s), compute stage
+            for _, data in enumerate(zip(reach.times(), reach.flows())):
+                time = data[0]
+                flow = data [1]
+            
+                if time not in dat:
+                    dat[time] = {}
+                    
+                for i in range(0, len(hydro_ids)):
+                    stage = rcs[i].get_stage_for_flow(flow)
+                    dat[time][hydro_ids[i]] = stage
+
+        print('building stage array') 
+        da = build_stage_data_array(ds, dat, delayed=False)
+        # set result as variable in the input dataset
+        ds['stage'] = da
+
+    return ds
+#        raise Exception('Non-parallel functionality not implemented yet')
+
+def generate_fim(ds, times, parallel=False):
     
     if parallel:
-        
-        return __dask_generate_fim(ds, times, parallel=True)
+        return __dask_generate_fim(ds, times)
     else:
-        return Exception("Non-parallel is not implemented")
+        return __generate_fim(ds, times)
+
+def __generate_fim(ds, times):
 
 
+    fims = []
+    masks = []
+    import pdb; pdb.set_trace()
+    for time in times:
+        fim, mask = compute_fim(ds, time)
+        fims.append(fim)
+        masks.append(mask)
+    fims = xarray.concat(fims, dim='time')
+    masks = xarray.concat(masks, dim='time')
 
-def __dask_generate_fim(xds, times, parallel=True):
+    ds['fim'] = fims
+    ds['fim_mask'] = masks
+    
+    return ds
+
+
+# TODO: break this into dask.delayed function
+def __dask_generate_fim(xds, times):
 
 
 #    client = distributed.client._get_global_client() or distributed.Client()
@@ -229,9 +332,14 @@ def __dask_generate_fim(xds, times, parallel=True):
     return xds
 
 
+def compute_fim(xds, time, parallel=False):
 
-@dask.delayed
-def compute_fim(xds, time):
+    if parallel:
+        return dask.delayed(__compute_fim)(xds, time)
+    else:
+        return __compute_fim(xds, time)
+    
+def __compute_fim(xds, time):
     
     da_fim = (xds.sel(time = time).stage - xds.hand)
     da_fim = xarray.where(da_fim >= 0.00001, da_fim, numpy.nan)
