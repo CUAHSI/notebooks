@@ -1,4 +1,4 @@
-#!/usr/bin.env python3
+#!/usr/bin/env python3
 
 import time
 import gcsfs
@@ -44,7 +44,7 @@ def download_blob(blob, local_file_path):
     return blob.name
 
 
-def download_matching_files(bucket_name, date, forecast_mode, init_time, destination_folder, merge_files=False, clean_on_success=False):
+def download_matching_files(bucket_name, date, forecast_mode, init_time, destination_folder, merge_files=False, clean_on_success=False, merge_format='Zarr'):
     """
     Download files from Google Cloud Storage that match a prefix.
 
@@ -53,6 +53,9 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
         prefix (str): The prefix to match files against.
         wildcard (str): The wildcard pattern to filter files by.
         destination_folder (str): The local folder to save downloaded files.
+        merge_files (bool): Indicates if a merged file will be created from the downloaded content.
+        clean_on_success (bool) : Indicates if the downloaded files will be downloaded after merge is successgful.
+        merge_format (str): Format to save the merged file 'Zarr' or 'NetCDF'.
     Returns:
         None
     """
@@ -61,7 +64,14 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
     prefix = f"nwm.{date.strftime('%Y%m%d')}/{forecast_mode}"
     Path(f'{destination_folder}/{prefix}').mkdir(parents=True, exist_ok=True)
     wildcard = f"nwm*t{init_time}z*channel*"
-    merged_path = f'{destination_folder}/nwm.{date.strftime("%Y%m%d")}/t{init_time}z_{forecast_mode}.nc'
+
+    # add the correct file extension to the merged_path
+    merged_path = f'{destination_folder}/nwm.{date.strftime("%Y%m%d")}/t{init_time}z_{forecast_mode}'
+    if merge_format == 'NetCDF':
+        merged_path += '.nc'
+    elif merge_format == 'Zarr':
+        merged_path += '.zarr'
+    
     if Path(merged_path).exists():
         # exit early, no need to collect data
         print(f'Data already exists at {merged_path}, skipping download')
@@ -100,12 +110,25 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
         # cdo = Cdo()
         # cdo.cat(input=local_files, output=merged_path)
 
-        # this is much more inefficient but works fine for short-range forcing
+        # this is inefficient but works fine for now
+        print('   - Loading NetCDF into Memory...', end='')
         ds = xr.open_mfdataset(local_files,
                                engine='h5netcdf',
                                parallel=True,
                                preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']])
-        ds.to_netcdf(merged_path)
+        print('done')
+
+        if merge_format == 'NetCDF':
+            print('   - Saving to NetCDF...', end='')
+            ds.to_netcdf(merged_path)
+            print('done')
+        elif merge_format == 'Zarr':
+            print('   - Saving to Zarr...', end='')
+            ds.to_zarr(merged_path)
+            print('done')
+        else:
+            print(f'!! Unrecognized merge_format: {merge_format}, skipping')
+        
         del ds
         print(f'elapsed time {time.time() - st}')
 
@@ -122,7 +145,7 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
     return local_files
 
 
-def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode='medium_range_mem1', destination_folder=Path('.cache'), merge_files=False, clean_on_success=False):
+def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode='medium_range_mem1', destination_folder=Path('.cache'), merge_files=False, clean_on_success=False, merge_format='Zarr'):
     """
     Returns a pandas dataframe of streamflow for a given reach and date.
 
@@ -151,7 +174,7 @@ def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode=
         
         # Download the streamflow files
         print('+ Collecting streamflow data...')
-        paths = download_matching_files("national-water-model", date, forecast_mode, init_time, destination_folder, merge_files, clean_on_success)
+        paths = download_matching_files("national-water-model", date, forecast_mode, init_time, destination_folder, merge_files, clean_on_success, merge_format=merge_format)
     
         # # create list of paths that match .cache/prefix/wildcard
         # paths = list((Path(".cache")/prefix).glob(wildcard))
