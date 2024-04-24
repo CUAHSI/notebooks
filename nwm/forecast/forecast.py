@@ -70,10 +70,8 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
     merged_path = f'{destination_folder}/nwm.{date.strftime("%Y%m%d")}/t{init_time}z_{forecast_mode}'
     if merge_format == 'NetCDF':
         merged_path += '.nc'
-        engine = 'h5netcdf'
     elif merge_format == 'Zarr':
         merged_path += '.zarr'
-        engine = 'zarr'
     
     if Path(merged_path).exists():
         # exit early, no need to collect data
@@ -119,12 +117,15 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
 
         # this is inefficient but works fine for now
         print('   - Reading NetCDF into Memory...', end='')
+        import pdb; pdb.set_trace()
         ds = xr.open_mfdataset(local_files,
-                               engine=engine,
+                               engine='h5netcdf',
                                parallel=True,
-                               preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']])
+                               preprocess=lambda ds: ds[['time',
+                                                         'streamflow',
+                                                         'feature_id']])
         print('done')
-
+        
         if merge_format == 'NetCDF':
             print('   - Saving to NetCDF...', end='')
             ds.to_netcdf(merged_path)
@@ -152,7 +153,12 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
     return local_files
 
 
-def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode='medium_range_mem1', destination_folder=Path('.cache'), merge_files=False, clean_on_success=False, merge_format='Zarr'):
+def get_streamflow_for_reaches(date, init_times=[], reach_ids=[],
+                               forecast_mode='medium_range_merge',
+                               destination_folder=Path('.cache'),
+                               merge_files=False,
+                               clean_on_success=False,
+                               merge_format='Zarr'):
     """
     Returns a pandas dataframe of streamflow for a given reach and date.
 
@@ -201,15 +207,22 @@ def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode=
         # Load the streamflow data
         st = time.time()
         import pdb; pdb.set_trace() 
+        
+        # set engine based on extension of paths
+        if paths[0].suffix == '.nc':
+            engine = 'h5netcdf'
+        elif paths[0].suffix == '.zarr':
+            engine = 'zarr'
+
         if len(paths) == 1:
             print('+ Loading single-file streamflow data...', end='')
-            ds = xr.open_dataset(paths[0]).sel(feature_id=reach_ids)
+            ds = xr.open_dataset(paths[0], engine=engine).sel(feature_id=reach_ids)
             dats[label] = ds
         else:
             print('+ Loading multi-file streamflow data...', end='')
             #streamflow_data = xr.open_mfdataset(paths)
             ds = xr.open_mfdataset(paths,
-                                   engine='h5netcdf',
+                                   engine=engine,
                                    parallel=True,
                                    preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']].sel(feature_id=reach_ids))    
             dats[label] = ds
