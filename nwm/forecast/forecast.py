@@ -75,11 +75,11 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
     
     if Path(merged_path).exists():
         # exit early, no need to collect data
-        print(f'  - Data already exists at {merged_path}, skipping download')
+        print(f'   - Data already exists at {merged_path}, skipping download')
         return [merged_path]
         
     blobs = get_matching_blobs(bucket_name, f'{prefix}/', wildcard)
-    print(f"  - Found {len(blobs)} matching files.")
+    print(f"   - Found {len(blobs)} matching files.")
 
     
     local_files = []
@@ -117,28 +117,28 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
 
         # this is inefficient but works fine for now
         print('   - Reading NetCDF into Memory...', end='')
-        import pdb; pdb.set_trace()
+        st = time.time()
         ds = xr.open_mfdataset(local_files,
                                engine='h5netcdf',
                                parallel=True,
                                preprocess=lambda ds: ds[['time',
                                                          'streamflow',
                                                          'feature_id']])
-        print('done')
-        
+        print(f'{time.time() - st:.2f} sec')
+        st = time.time()
         if merge_format == 'NetCDF':
             print('   - Saving to NetCDF...', end='')
             ds.to_netcdf(merged_path)
-            print('done')
+            print(f'{time.time() - st:.2f} sec')
         elif merge_format == 'Zarr':
             print('   - Saving to Zarr...', end='')
             ds.to_zarr(merged_path)
-            print('done')
+            print(f'{time.time() - st:.2f} sec')
         else:
             print(f'!! Unrecognized merge_format: {merge_format}, skipping')
-        
+
+        # cleaning memory
         del ds
-        print(f'  elapsed time {time.time() - st}')
 
         if clean_on_success:
             st = time.time()
@@ -146,7 +146,7 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
             
             path_to_delete = Path(local_file_path).parent
             shutil.rmtree(path_to_delete)
-            print(f'  elapsed time {time.time() - st}')
+            print(f'{time.time() - st:.2f} sec')
             
         return [merged_path]
 
@@ -206,12 +206,11 @@ def get_streamflow_for_reaches(date, init_times=[], reach_ids=[],
         label = f"{date.strftime('%Y%m%d')}-{forecast_mode}-t{it}z"
         # Load the streamflow data
         st = time.time()
-        import pdb; pdb.set_trace() 
         
         # set engine based on extension of paths
-        if paths[0].suffix == '.nc':
+        if (suffix := Path(paths[0]).suffix) == '.nc':
             engine = 'h5netcdf'
-        elif paths[0].suffix == '.zarr':
+        elif suffix == '.zarr':
             engine = 'zarr'
 
         if len(paths) == 1:
@@ -226,7 +225,7 @@ def get_streamflow_for_reaches(date, init_times=[], reach_ids=[],
                                    parallel=True,
                                    preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']].sel(feature_id=reach_ids))    
             dats[label] = ds
-        print(f'Elapsed time: {time.time()-st}')
+        print(f'{time.time() - st:.2f} sec')
 
 
     return dats
