@@ -1,6 +1,8 @@
 #!/usr/bin.env python3
 
+import time
 import gcsfs
+import shutil
 import fsspec
 import fnmatch
 import xarray as xr
@@ -42,7 +44,7 @@ def download_blob(blob, local_file_path):
     return blob.name
 
 
-def download_matching_files(bucket_name, prefix, wildcard, destination_folder):
+def download_matching_files(bucket_name, date, forecast_mode, init_time, destination_folder, merge_files=False, clean_on_success=False):
     """
     Download files from Google Cloud Storage that match a prefix.
 
@@ -55,9 +57,20 @@ def download_matching_files(bucket_name, prefix, wildcard, destination_folder):
         None
     """
 
-    blobs = get_matching_blobs(bucket_name, prefix, wildcard)
+    # Construct the prefix for the streamflow file
+    prefix = f"nwm.{date.strftime('%Y%m%d')}/{forecast_mode}"
+    Path(f'{destination_folder}/{prefix}').mkdir(parents=True, exist_ok=True)
+    wildcard = f"nwm*t{init_time}z*channel*"
+    merged_path = f'{destination_folder}/nwm.{date.strftime("%Y%m%d")}/t{init_time}z_{forecast_mode}.nc'
+    if Path(merged_path).exists():
+        # exit early, no need to collect data
+        print(f'Data already exists at {merged_path}, skipping download')
+        return [merged_path]
+        
+    blobs = get_matching_blobs(bucket_name, f'{prefix}/', wildcard)
     print(f"Found {len(blobs)} matching files.")
 
+    local_files = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
 
@@ -65,6 +78,8 @@ def download_matching_files(bucket_name, prefix, wildcard, destination_folder):
         for blob in blobs:
             # Construct local file path
             local_file_path = f"{destination_folder}/{blob.name}"
+            
+            local_files.append(local_file_path)
             
             # check if file already exists
             if Path(local_file_path).exists():
@@ -76,8 +91,38 @@ def download_matching_files(bucket_name, prefix, wildcard, destination_folder):
         for future in concurrent.futures.as_completed(futures):
             print(f"Downloaded {future.result()}")
 
+    if merge_files:
+        st = time.time()
+        print('+ Merging files...', end='')
+        
+        ## TODO: CDO isn't working properly
+        # from cdo import Cdo
+        # cdo = Cdo()
+        # cdo.cat(input=local_files, output=merged_path)
 
-def get_streamflow_for_reaches(date, init_time, reach_ids=[], forecast_mode='medium_range_mem1', destination_folder=Path('.cache')):
+        # this is much more inefficient but works fine for short-range forcing
+        ds = xr.open_mfdataset(local_files,
+                               engine='h5netcdf',
+                               parallel=True,
+                               preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']])
+        ds.to_netcdf(merged_path)
+        del ds
+        print(f'elapsed time {time.time() - st}')
+
+        if clean_on_success:
+            st = time.time()
+            print('+ Cleaning files...', end='')
+            
+            path_to_delete = Path(local_file_path).parent
+            shutil.rmtree(path_to_delete)
+            print(f'elapsed time {time.time() - st}')
+            
+        return [merged_path]
+
+    return local_files
+
+
+def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode='medium_range_mem1', destination_folder=Path('.cache'), merge_files=False, clean_on_success=False):
     """
     Returns a pandas dataframe of streamflow for a given reach and date.
 
@@ -91,37 +136,49 @@ def get_streamflow_for_reaches(date, init_time, reach_ids=[], forecast_mode='med
         The reach ID for which to retrieve streamflow data.
     """
 
-    # zero pad the initialization time
-    init_time = str(init_time).zfill(2)
-
-    # Construct the prefix for the streamflow file
-    prefix = f"nwm.{date.strftime('%Y%m%d')}/{forecast_mode}/"
-    wildcard = f"nwm*t{init_time}z*channel*"
-
-    # create .cache directory if it doesn't already exist
-    Path(".cache").mkdir(parents=True, exist_ok=True)
+    dats = {}
+    for it in init_times:
+        
+        # zero pad the initialization time
+        init_time = str(it).zfill(2)
     
-    # Download the streamflow files
-    print('+ Collecting streamflow data...')
-    download_matching_files("national-water-model", prefix, wildcard, destination_folder)
+        # # Construct the prefix for the streamflow file
+        # prefix = f"nwm.{date.strftime('%Y%m%d')}/{forecast_mode}"
+        # wildcard = f"nwm*t{init_time}z*channel*"
+    
+        # create .cache directory if it doesn't already exist
+        Path(".cache").mkdir(parents=True, exist_ok=True)
+        
+        # Download the streamflow files
+        print('+ Collecting streamflow data...')
+        paths = download_matching_files("national-water-model", date, forecast_mode, init_time, destination_folder, merge_files, clean_on_success)
+    
+        # # create list of paths that match .cache/prefix/wildcard
+        # paths = list((Path(".cache")/prefix).glob(wildcard))
+    
+        if len(paths) == 0:
+            raise ValueError(f"No files found matching prefix {prefix} and wildcard {wildcard}")
+            return None
 
-    # create list of paths that match .cache/prefix/wildcard
-    paths = list((Path(".cache")/prefix).glob(wildcard))
+        label = f"{date.strftime('%Y%m%d')}-{forecast_mode}-t{it}z"
+        # Load the streamflow data
+        st = time.time()
+        if len(paths) == 1:
+            print('+ Loading single-file streamflow data...', end='')
+            ds = xr.open_dataset(paths[0]).sel(feature_id=reach_ids)
+            dats[label] = ds
+        else:
+            print('+ Loading multi-file streamflow data...', end='')
+            #streamflow_data = xr.open_mfdataset(paths)
+            ds = xr.open_mfdataset(paths,
+                                   engine='h5netcdf',
+                                   parallel=True,
+                                   preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']].sel(feature_id=reach_ids))    
+            dats[label] = ds
+        print(f'Elapsed time: {time.time()-st}')
 
-    if len(paths) == 0:
-        raise ValueError(f"No files found matching prefix {prefix} and wildcard {wildcard}")
-        return None
 
-    # Load the streamflow data
-    print('+ Loading streamflow data...', end='')
-    st = time.time()
-    streamflow_data = xr.open_mfdataset(paths)
-    print(f'Elapsed time: {time.time()-st}')
-
-    # Extract the streamflow for the given reach
-    streamflow = streamflow_data.streamflow.sel(feature_id=reach_ids)
-
-    return streamflow
+    return dats
 
 # TODO: this is super slow. Need to figure out how to speed up the download process.
 def open_mfdataset_from_gcp(bucket_name, prefix, wildcard, reach_ids):
@@ -169,8 +226,8 @@ if __name__ == "__main__":
 #    download_matching_files(bucket_name, prefix, wildcard, destination_folder)
 
     # collect data for the Squannacook River at West Groton
-    import time; st = time.time()
-    ds = get_streamflow_for_reaches(datetime(2024, 4, 20), 0, 6076039)
+    st = time.time()
+    ds = get_streamflow_for_reaches(datetime(2024, 4, 20), 0, 6076039, )
     print(f'Elapsed time: {time.time()-st}')
 
 #    # open data directory from GCP without downloading.
