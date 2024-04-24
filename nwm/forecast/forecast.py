@@ -6,6 +6,7 @@ import shutil
 import fsspec
 import fnmatch
 import xarray as xr
+from tqdm import tqdm
 from pathlib import Path
 import concurrent.futures
 from datetime import datetime
@@ -69,17 +70,20 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
     merged_path = f'{destination_folder}/nwm.{date.strftime("%Y%m%d")}/t{init_time}z_{forecast_mode}'
     if merge_format == 'NetCDF':
         merged_path += '.nc'
+        engine = 'h5netcdf'
     elif merge_format == 'Zarr':
         merged_path += '.zarr'
+        engine = 'zarr'
     
     if Path(merged_path).exists():
         # exit early, no need to collect data
-        print(f'Data already exists at {merged_path}, skipping download')
+        print(f'  - Data already exists at {merged_path}, skipping download')
         return [merged_path]
         
     blobs = get_matching_blobs(bucket_name, f'{prefix}/', wildcard)
-    print(f"Found {len(blobs)} matching files.")
+    print(f"  - Found {len(blobs)} matching files.")
 
+    
     local_files = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
@@ -98,12 +102,15 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
             future = executor.submit(download_blob, blob, local_file_path)
             futures.append(future)
 
-        for future in concurrent.futures.as_completed(futures):
-            print(f"Downloaded {future.result()}")
-
+        # progress bar for downloads
+        tqdm_prefix = f'Downloading {forecast_mode} {date.strftime("%Y%m%d")}'
+        with tqdm(total=len(futures), desc=tqdm_prefix) as pbar:
+            for future in concurrent.futures.as_completed(futures):
+                pbar.update(1)
+    
     if merge_files:
         st = time.time()
-        print('+ Merging files...', end='')
+        print('+ Merging files')
         
         ## TODO: CDO isn't working properly
         # from cdo import Cdo
@@ -111,9 +118,9 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
         # cdo.cat(input=local_files, output=merged_path)
 
         # this is inefficient but works fine for now
-        print('   - Loading NetCDF into Memory...', end='')
+        print('   - Reading NetCDF into Memory...', end='')
         ds = xr.open_mfdataset(local_files,
-                               engine='h5netcdf',
+                               engine=engine,
                                parallel=True,
                                preprocess=lambda ds: ds[['time', 'streamflow', 'feature_id']])
         print('done')
@@ -130,7 +137,7 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
             print(f'!! Unrecognized merge_format: {merge_format}, skipping')
         
         del ds
-        print(f'elapsed time {time.time() - st}')
+        print(f'  elapsed time {time.time() - st}')
 
         if clean_on_success:
             st = time.time()
@@ -138,7 +145,7 @@ def download_matching_files(bucket_name, date, forecast_mode, init_time, destina
             
             path_to_delete = Path(local_file_path).parent
             shutil.rmtree(path_to_delete)
-            print(f'elapsed time {time.time() - st}')
+            print(f'  elapsed time {time.time() - st}')
             
         return [merged_path]
 
@@ -174,7 +181,14 @@ def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode=
         
         # Download the streamflow files
         print('+ Collecting streamflow data...')
-        paths = download_matching_files("national-water-model", date, forecast_mode, init_time, destination_folder, merge_files, clean_on_success, merge_format=merge_format)
+        paths = download_matching_files("national-water-model",
+                                        date,
+                                        forecast_mode,
+                                        init_time,
+                                        destination_folder,
+                                        merge_files,
+                                        clean_on_success,
+                                        merge_format=merge_format)
     
         # # create list of paths that match .cache/prefix/wildcard
         # paths = list((Path(".cache")/prefix).glob(wildcard))
@@ -186,6 +200,7 @@ def get_streamflow_for_reaches(date, init_times=[], reach_ids=[], forecast_mode=
         label = f"{date.strftime('%Y%m%d')}-{forecast_mode}-t{it}z"
         # Load the streamflow data
         st = time.time()
+        import pdb; pdb.set_trace() 
         if len(paths) == 1:
             print('+ Loading single-file streamflow data...', end='')
             ds = xr.open_dataset(paths[0]).sel(feature_id=reach_ids)
