@@ -12,7 +12,6 @@ import numpy
 import xarray
 import pandas
 import geopandas
-import fim_utils as fim
 from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
