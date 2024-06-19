@@ -265,9 +265,9 @@ def subset_upstream(hydrofabric: str, ids: str) -> None:
     cat_ids = list(map(lambda x: x.replace("wb", "cat"), wb_ids))
     p = Path(hydrofabric)
     vpu = p.parts[-1].split('_')[-1].split('.')[0]
-    parquet_name = f'nextgen_{vpu}_cfe_noahowp.parquet'
-    parquet_path =  (str(Path(*p.parts[0:-1])/parquet_name).
-                     replace(':/','://'))
+    parquet_name = f'model_attributes/nextgen_{vpu}.parquet'
+    parquet_path =  (str(Path(*p.parts[0:-2])/parquet_name).
+                      replace(':/','://'))
     model_attributes = pq.ParquetDataset(
         parquet_path,
         filesystem=s3fs.S3FileSystem(anon=True),
