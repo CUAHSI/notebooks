@@ -164,5 +164,8 @@ cython_debug/
 
 # misc
 extra/
-output-/
+output*/
 sample-data/
+bak/
+.jukit/
+test-data/
