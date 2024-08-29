@@ -4,14 +4,14 @@ import pandas
 import numpy as np
 import matplotlib.pyplot as plt
 
-def compute_rolling_windows(dat, num_days = 45, ensembles=[0], center=False):
+def compute_rolling_windows(dat, variable='RAIN', num_days = 45, ensembles=[0], center=False):
     # compute 45-day rolling windows for each of the ensemble members
     
     rolling_dict = {}
     for member_id in ensembles:
         print(f'Processing Member {member_id}...', end='')
-        dat_mem = dat.isel(member_id=member_id).RAIN
-        rolling_mem = (dat_mem.sum(dim=['lat', 'lon']).rolling(time=num_days, center=center).sum() * 86400).compute()
+        dat_mem = dat.isel(member_id=member_id)[variable]
+        rolling_mem = (dat_mem.sum(dim=['lat', 'lon']).rolling(time=num_days, center=center).sum()).compute()
         rolling_dict[f'member-{member_id}'] = rolling_mem
         print('done') 
     return rolling_dict
