@@ -69,19 +69,18 @@ def create_ar_index_for_grid_cell(ds):
 
         # we hit a value of 1
         if flattened[idx] == 1:
-            current_sequence += 1
-
             if flattened[idx - 1] == 0:
                 # this is the first value in the set
                 idx_start = idx
                 event += 1
+            current_sequence += 1
+            ar_events[idx] = event
 
         # we hit a value of 0
         else:
             if current_sequence > 0:
                 ar_duration[idx_start:idx] = current_sequence
             current_sequence = 0
-            ar_events[idx_start:idx] = event
 
     # return all but the first zero that we added
     ds["AR_INDEX"] = (
