@@ -3,6 +3,7 @@
 
 import numpy as np
 import xarray as xr
+from itertools import groupby
 
 
 # Global params
@@ -261,3 +262,74 @@ def compute_ar_category(ar_index, ar_duration, ar_ivt):
         last_idx = idx
 
     return cat
+
+def compute_ar_probability(ar_index, ar_category):
+
+    # computed the number of timesteps containing each AR category.
+    # array indices are used to represent each AR category, i.e.
+    # cat_counts[1] => category 1, ..., cat_counts[5] => category 5
+    cat_counts  = np.array([0, 0, 0, 0, 0, 0])
+    total_ar_ts = 0
+    for i in range(0, len(ar_index)):
+        cat = ar_category[i]
+        cat_counts[int(cat)] += 1
+
+    # compute the probability for each category, when AR events are detected, as 
+    # well as the overall probability including non-AR events.
+    probability_ar = (cat_counts[1:] / sum(cat_counts[1:])) * 100
+    probability_overall = (cat_counts / sum(cat_counts)) * 100 # for debugging
+    
+    return probability_ar
+
+    # # test at a single point.
+    # lat = 38.
+    # lon = -123.125 + 360 
+    # ds_cell = ds.sel(lat=lat, lon=lon, method='nearest')
+    
+    # compute_probability(ds_cell.AR_INDEX.values, ds_cell.AR_CATEGORY.values)
+
+def compute_ar_degree(arr_ivt, arr_duration, arr_index):
+
+    # Degree is computed as the product of IVT and duration in kg/m
+    # this requires a unit conversion of arr_duration from 6-hr to sec timesteps.
+    arr_degree = (arr_ivt * arr_duration) * (6 *3600)
+
+    # compute a single degree value for each AR event by summing the
+    # previously computed degree for each event in arr_index. Set this
+    # value for all timesteps associated with the event.
+    arr_event_degree = np.zeros(arr_index.shape)
+    #data = sorted(zip(arr_index, arr_degree), key=lambda x: x[0])
+    data = zip(arr_index, arr_degree)
+    i = 0
+    for key, group in groupby(data, lambda x: x[0]):
+        # get the values as a list because otherwise we can
+        # only access them once, i.e. an iterator empties the
+        # array when looping through it.
+        dat = [value for _, value in group]
+        event_degree_sum = sum(dat)
+        arr_event_degree[i: i+len(dat)] = event_degree_sum
+
+        # increment the index by the length of data
+        i += len(dat)
+        
+        #event_degree_sum = sum(value for _, value in group)
+        #arr_event_degree[int(key)] = event_degree_sum
+        
+    return arr_event_degree
+
+
+    # # test at a single point.
+    # # ----------------------- 
+    # lat = 38.
+    # lon = -123.125 + 360 
+    # ds_cell = ds.sel(lat=lat, lon=lon, method='nearest')
+    
+    # deg = compute_degree(ds_cell.IVT.values, ds_cell.AR_DURATION.values, ds_cell.AR_INDEX.values)
+    # fig, ax = plt.subplots()
+    
+    # ax.scatter(range(1, len(deg)),
+    #            deg[1:])
+    # ax.set_xlabel('AR_INDEX')
+    # ax.set_ylabel('AR_DEGREE')
+    # plt.show()
+    # # -----------------------
