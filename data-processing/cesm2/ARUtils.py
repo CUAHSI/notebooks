@@ -11,7 +11,7 @@ AR_THRESHOLD = 250  # minimum threshold for AR detection (250 kg/m/s)
 
 # Initialize AR Category lookup table
 # AR[IVT/10, Duration (hours)]
-AR = np.zeros((200, 144)) + 5
+AR = np.zeros((500, 1000)) + 5
 # cat 4
 AR[125:150, :24] = 4
 AR[100:125, 24:48] = 4
@@ -203,7 +203,7 @@ def compute_ar_durations(arr):
 def compute_ar_category(ar_index, ar_duration, ar_ivt):
 
     # Initialize AR Category lookup table
-    AR = np.zeros((200, 1000)) + 5
+    AR = np.zeros((500, 1000)) + 5
     # cat 4
     AR[125:150, :24] = 4
     AR[100:125, 24:48] = 4
