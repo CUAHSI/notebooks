@@ -1,0 +1,3 @@
+dataretrieval==1.0.6
+folium==0.15.1
+matplotlib==3.8.3
