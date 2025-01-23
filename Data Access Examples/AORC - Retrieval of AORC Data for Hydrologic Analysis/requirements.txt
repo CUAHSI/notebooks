@@ -1,5 +1,5 @@
 numpy==1.26.4
-geopandas==0.14.3
+geopandas==0.14.4
 matplotlib==3.8.3
 xarray==2024.3.0
 s3fs==2024.3.1
