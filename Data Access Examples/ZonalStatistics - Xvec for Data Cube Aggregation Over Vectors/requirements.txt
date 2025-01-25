@@ -1,0 +1,13 @@
+cf_xarray==0.10.0
+dask==2024.4.1
+dask-geopandas==0.3.1
+fsspec==2024.3.1
+geopandas==0.14.3
+numpy==1.26.4
+pint-xarray==0.3
+rioxarray==0.15.3
+xarray==2024.3.0
+xarray-datatree==0.0.14
+xgcm==0.6.1
+xvec==0.3.1
+jupyter
