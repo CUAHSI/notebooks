@@ -1,0 +1,5 @@
+xarray[complete]
+netcdf4
+earthaccess
+h5netcdf
+dask
