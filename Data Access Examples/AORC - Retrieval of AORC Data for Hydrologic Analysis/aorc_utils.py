@@ -1,6 +1,13 @@
 import xarray as xr
 import fsspec
 import pyproj
+import xarray as xr
+import matplotlib.pyplot as plt
+import pandas as pd
+import contextily as ctx  # For adding a basemap
+import geopandas as gpd
+from matplotlib.animation import FuncAnimation
+from IPython.display import HTML
 
 def get_conus_bucket_url(variable_code):
     """
@@ -121,3 +128,72 @@ def get_time_code(interval_name):
         raise Exception(f"{interval_name} is not a valid interval name")
     
     return time_attrs[interval_name]
+
+def display_shapefile_map(gdf, basin_name):
+    """
+    Plots a shapefile with a topographic basemap.
+
+    Parameters:
+    gdf (GeoDataFrame): The input shapefile in a GeoPandas dataframe.
+    basin_name (str): Title of the plot.
+    """
+    # Create a layout for the plot
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Display the shapefile
+    gdf.plot( ax=ax, color='none', edgecolor='black', linewidth=2)
+
+    # Add a topographic basemap using contextily 
+    ctx.add_basemap(ax, source=ctx.providers.Esri.WorldImagery, crs=gdf.crs.to_string(), alpha=0.8)
+
+    # Add title
+    ax.set_title(basin_name, fontsize=12)
+    # Add grid lines
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    # Customize x and y axis labels
+    ax.set_xlabel("Longitude", fontsize=12)
+    ax.set_ylabel("Latitude", fontsize=12)
+
+    # Show the plot
+    plt.show()
+
+def ds_animate(ds, gdf, agg_interval, filename="animation.mp4"):
+    """ 
+    Vidualize aggregated subset as an animated plot
+    
+    Parameters: 
+    ds: aggregated subset of data
+    gdf: shapefile
+    agg_interval: User-defined aggregation interval
+
+    Return: An animated plot and animation.mp4
+    
+    """
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Initial plot setup
+    initial_data = ds.isel(time=0)
+    mesh = ax.pcolormesh(ds['x'], ds['y'], initial_data, shading='auto', cmap='viridis')
+    cbar = fig.colorbar(mesh, ax=ax, label=f"{ds.name} (mm/{agg_interval})")
+
+    # Format time labels
+    time_coords = pd.to_datetime(ds['time'].values)
+    formatted_dates = time_coords.strftime('%Y-%m-%d' if agg_interval == 'day' else '%Y-%m' if agg_interval == 'month' else '%Y')
+
+    # Update function
+    def update(frame):
+        data = ds.isel(time=frame)
+        mesh.set_array(data.values.ravel())  # Update plot
+        ax.set_title(f"{ds.name} ({formatted_dates[frame]})")
+        return mesh,
+
+    # Display shapefile
+    gdf.plot(ax=ax, color='none', edgecolor='black', linewidth=1)
+
+    # Create animation
+    anim = FuncAnimation(fig, update, frames=len(ds.time), interval=1000, blit=True)
+    plt.close(fig)
+    anim.save(filename, fps=1, writer="ffmpeg")
+    return HTML(anim.to_jshtml()) 
+
