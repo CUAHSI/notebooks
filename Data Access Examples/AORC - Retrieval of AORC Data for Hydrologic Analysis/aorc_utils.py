@@ -157,43 +157,45 @@ def display_shapefile_map(gdf, basin_name):
     # Show the plot
     plt.show()
 
-def ds_animate(ds, gdf, agg_interval, filename="animation.mp4"):
+def da_animate(da, gdf, variable_name, unit, agg_interval):
     """ 
-    Vidualize aggregated subset as an animated plot
+    Vidualize the data as an animated plot
     
     Parameters: 
-    ds: aggregated subset of data
-    gdf: shapefile
-    agg_interval: User-defined aggregation interval
+    da (xarray.DataArray): A DataArray (time, x, y) containing the data to be animated.
+    gdf (geopandas.GeoDataFrame): A GeoDataFrame containing the shapefile (vector data)
+    variable_name (str): User-defined variable of interest
+    unit (str): The unit of the variable
+    agg_interval (str): User-defined aggregation interval
 
-    Return: An animated plot and animation.mp4
+    Return: An animated plot, which will also be saved as an mp4 file.
     
     """
-    
+
     fig, ax = plt.subplots(figsize=(12, 8))
 
     # Initial plot setup
-    initial_data = ds.isel(time=0)
-    mesh = ax.pcolormesh(ds['x'], ds['y'], initial_data, shading='auto', cmap='viridis')
-    cbar = fig.colorbar(mesh, ax=ax, label=f"{ds.name} (mm/{agg_interval})")
+    initial_data = da.isel(time=0)
+    mesh = ax.pcolormesh(da['x'], da['y'], initial_data, shading='auto', cmap='viridis')
+    cbar = fig.colorbar(mesh, ax=ax, label=f"{variable_name} ({unit})")
 
     # Format time labels
-    time_coords = pd.to_datetime(ds['time'].values)
+    time_coords = pd.to_datetime(da['time'].values)
     formatted_dates = time_coords.strftime('%Y-%m-%d' if agg_interval == 'day' else '%Y-%m' if agg_interval == 'month' else '%Y')
 
     # Update function
     def update(frame):
-        data = ds.isel(time=frame)
+        data = da.isel(time=frame)
         mesh.set_array(data.values.ravel())  # Update plot
-        ax.set_title(f"{ds.name} ({formatted_dates[frame]})")
+        ax.set_title(f"{variable_name} ({formatted_dates[frame]})")
         return mesh,
 
     # Display shapefile
     gdf.plot(ax=ax, color='none', edgecolor='black', linewidth=1)
 
     # Create animation
-    anim = FuncAnimation(fig, update, frames=len(ds.time), interval=1000, blit=True)
+    anim = FuncAnimation(fig, update, frames=len(da.time), interval=1000, blit=True)
     plt.close(fig)
-    anim.save(filename, fps=1, writer="ffmpeg")
+    anim.save(f"{variable_name}_over_area.mp4", fps=1, writer="ffmpeg")
     return HTML(anim.to_jshtml()) 
 
