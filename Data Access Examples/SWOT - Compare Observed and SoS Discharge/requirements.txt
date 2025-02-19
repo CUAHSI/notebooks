@@ -1,0 +1,7 @@
+jupyter
+hsclient==1.1.2
+pandas==2.2.3
+earthaccess
+xarray
+h5netcdf
+zarr
