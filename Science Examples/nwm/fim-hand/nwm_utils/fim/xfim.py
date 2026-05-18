@@ -367,7 +367,7 @@ def generate_fim_grid(nhd_feature_id: int,
 
     # Collect stage for all hydroids in this NHD+ feature.
     # Use the input cms to interpolate river stage from a rating curve.
-    stage_dict = fim.get_stage_for_all_hydroids_in_reach(nhd_feature_id, cms)
+    stage_dict = get_stage_for_all_hydroids_in_reach(nhd_feature_id, cms)
 
     # Load the precomputed HAND raster.
     xds = get_hand_object(Path("./rem_zeroed_masked_0.tif"))
