@@ -61,9 +61,9 @@ def get_nwm_q(nwm_reach_id, start_date, end_date, output_path):
     print('done.')
     
     print('Saving results in a csv file...', end='')
-    subset_df = subset.streamflow.to_dataframe()
+    subset_df = subset.streamflow.to_dataframe().reset_index()
     subset_df.rename({'streamflow': f'streamflow_{ds.streamflow.attrs["units"]}'}, axis='columns', inplace=True)
-    subset_df.to_csv(output_path)
+    subset_df.to_csv(output_path, index=False)
     print('done')
     
     return subset_df
