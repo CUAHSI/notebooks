@@ -42,17 +42,18 @@ class Forecasts():
         
     
     def fetch_url(self, params):
-        try:
-            response = requests.get(self.url,
-                                    params=params,
-                                    headers=self.header)
+        # try:
+        response = requests.get(self.url,
+                                params=params,
+                                headers=self.header,
+                                timeout=60)
+        
+        # Raise an exception for HTTP errors
+        response.raise_for_status()  
+        return response
             
-            # Raise an exception for HTTP errors
-            response.raise_for_status()  
-            return response
-            
-        except requests.exceptions.RequestException as e:
-            return f"Error fetching {self.url}: {e}"
+        # except requests.exceptions.RequestException as e:
+        #     return f"Error fetching {self.url}: {e}"
 
     def fetch_async(self, params_list):
 
@@ -77,16 +78,20 @@ class Forecasts():
                 try:
                     res = future.result()
 
-                    # attempt to get the status code.
-                    # if one is not returned, we should log 
-                    # it as an error.
-                    status_code = res.status_code
+                    # If the request wasn't successful,
+                    # log it as an error.
+                    res.raise_for_status()
 
                     # otherwise, the 
                     results.append(res)
                     
                 except Exception as e:
-                    errors.append(f"Exception for {url}: {e}")
+                    errors.append(
+                        {
+                            'error_message': e,
+                            'parameters': params_list
+                        }
+                    )
             
             return results, errors
             
@@ -111,6 +116,9 @@ class Forecasts():
         # query the api asynchronously with the parameters defined above 
         responses, errors = self.fetch_async(params)
 
+        if errors:
+            print(f'Encountered {len(errors)} errors')
+            
         # filter out only the successful responses and 
         # convert them into a single pandas dataframe
         successful_responses = [resp for resp in responses if resp.status_code == 200]

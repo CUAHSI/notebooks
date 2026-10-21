@@ -1,0 +1,10 @@
+ipykernel
+ngiab_data_preprocess
+fiona~=1.9.6
+folium~=0.16.0
+geopandas~=1.0.1
+matplotlib~=3.8.3
+xarray~=2024.2.0
+pandas~=2.2.1
+dataretrieval~=1.0.12
+numpy~=1.26.4
